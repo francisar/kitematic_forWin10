@@ -1,0 +1,26 @@
+.DS_Store
+.swp
+build
+dist
+release
+installer
+node_modules
+coverage
+npm-debug.log
+
+# Integration test environment
+integration
+
+# Resources
+resources/docker*
+resources/boot2docker*
+
+# Cache
+cache
+
+# Tests
+.test
+settings.json
+
+# IDEs
+.idea

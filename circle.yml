@@ -1,0 +1,7 @@
+machine:
+  xcode:
+    version: "7.0"
+
+dependencies:
+  cache_directories:
+    - "node_modules"

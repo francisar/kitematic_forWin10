@@ -5,6 +5,7 @@ import Promise from 'bluebird';
 import util from './Util';
 import bugsnag from 'bugsnag-js';
 import virtualBox from './VirtualBoxUtil';
+import hyperv from './HyperVUtil';
 import setupServerActions from '../actions/SetupServerActions';
 import metrics from './MetricsUtil';
 import machine from './DockerMachineUtil';
@@ -52,39 +53,42 @@ export default {
   },
 
   async setup () {
-    //let virtualBoxVersion = null;
+    let hypervVersion = null;
     let machineVersion = null;
     while (true) {
       try {
         setupServerActions.started({started: false});
-
-        // Make sure virtulBox and docker-machine are installed
-       // let virtualBoxInstalled = virtualBox.installed();
+        let hypervInstalled = await hyperv.installed();
         let machineInstalled = machine.installed();
-       // if (!virtualBoxInstalled || !machineInstalled) {
+        if (!hypervInstalled || !machineInstalled) {
        if (!machineInstalled) {
           router.get().transitionTo('setup');
-          // if (!virtualBoxInstalled) {
-          //  setupServerActions.error({error: 'VirtualBox is not installed. Please install it via the Docker Toolbox.'});
-          //} else {
-          setupServerActions.error({error: 'Docker Machine is not installed. Please install it via the Docker Toolbox.'});
-          //}
+          if (!hypervInstalled) {
+             setupServerActions.error({error: 'HyperV is not installed. Please install it via the Control Panal.'});
+          } else {
+             setupServerActions.error({error: 'Docker Machine is not installed. Please install it via the Docker Toolbox.'});
+          }
+          let hypervActived = await hyperv.active();
+          if(!hypervActived){
+             setupServerActions.error({error: 'HyperV is not Running. Please Start it.'});
+         }
           this.clearTimers();
           await this.pause();
           continue;
         }
+        }
 
-        //virtualBoxVersion = await virtualBox.version();
+        hypervVersion = await hyperv.version();
         machineVersion = await machine.version();
 
         setupServerActions.started({started: true});
         metrics.track('Started Setup', {
-          //virtualBoxVersion,
+          hypervVersion,
           machineVersion
         });
 
-       // let exists = await virtualBox.vmExists(machine.name()) && fs.existsSync(path.join(util.home(), '.docker', 'machine', 'machines', machine.name()));
-       let exists = await machine.exists() && fs.existsSync(path.join(util.home(), '.docker', 'machine', 'machines', machine.name()));
+       let exists = await hyperv.vmExists(machine.name()) && fs.existsSync(path.join(util.home(), '.docker', 'machine', 'machines', machine.name()));
+       //let exists = await machine.exists() && fs.existsSync(path.join(util.home(), '.docker', 'machine', 'machines', machine.name()));
         if (!exists) {
           router.get().transitionTo('setup');
           setupServerActions.started({started: true});
@@ -128,18 +132,18 @@ export default {
       } catch (error) {
         router.get().transitionTo('setup');
         metrics.track('Setup Failed', {
-          //virtualBoxVersion,
+          hypervVersion,
           machineVersion
         });
         setupServerActions.error({error});
 
         let message = error.message.split('\n');
         let lastLine = message.length > 1 ? message[message.length - 2] : 'Docker Machine encountered an error.';
-       // let virtualBoxLogs = machine.virtualBoxLogs();
+        let hyperVLogs = machine.hyperVLogs();
         bugsnag.notify('Setup Failed', lastLine, {
           'Docker Machine Logs': error.message,
-         // 'VirtualBox Logs': virtualBoxLogs,
-          //'VirtualBox Version': virtualBoxVersion,
+          'hyperVLogs': virtualBoxLogs,
+          'Windows Version': hypervVersion,
           'Machine Version': machineVersion,
           groupingHash: machineVersion
         }, 'info');
@@ -149,7 +153,7 @@ export default {
       }
     }
     metrics.track('Setup Finished', {
-      //virtualBoxVersion,
+      hypervVersion,
       machineVersion
     });
   }

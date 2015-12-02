@@ -9,13 +9,14 @@ import metrics from '../utils/MetricsUtil';
 import containerServerActions from '../actions/ContainerServerActions';
 import Promise from 'bluebird';
 import rimraf from 'rimraf';
+import machine from './DockerMachineUtil';
 
 export default {
   host: null,
   client: null,
   placeholders: {},
 
-  setup (ip, name) {
+  async setup (ip, name) {
     if (!ip || !name) {
       throw new Error('Falsy ip or name passed to docker client setup');
     }
@@ -24,6 +25,10 @@ export default {
 
     if (!fs.existsSync(certDir)) {
       throw new Error('Certificate directory does not exist');
+    }
+    let certcheck = path.join(certDir, 'cert.pem');
+    if(!fs.existsSync(certcheck)){
+        await machine.regenerateCerts(name);
     }
 
     this.host = ip;

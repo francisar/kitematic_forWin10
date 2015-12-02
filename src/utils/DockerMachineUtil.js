@@ -3,6 +3,12 @@ import path from 'path';
 import Promise from 'bluebird';
 import fs from 'fs';
 import util from './Util';
+import hyperV from './HyperVUtil';
+import bugsnag from 'bugsnag-js';
+import setupServerActions from '../actions/SetupServerActions';
+import metrics from './MetricsUtil';
+import docker from './DockerUtil';
+import router from '../router';
 
 var DockerMachine = {
   command: function () {
@@ -13,7 +19,7 @@ var DockerMachine = {
     }
   },
   name: function () {
-    return 'dockerdom';
+    return 'default';
   },
   installed: function () {
     if (util.isWindows() && !process.env.DOCKER_TOOLBOX_INSTALL_PATH) {
@@ -56,12 +62,18 @@ var DockerMachine = {
       return false;
     });
   },
-  create: function (machineName = this.name()) {
-    //return util.exec([this.command(), '-D', 'create', '-d', 'virtualbox', '--virtualbox-memory', '2048', machineName]);
-    return util.exec([this.command(), '-D', 'create', '-d', 'hyperv', '--hyperv-memory', '512', machineName]);
+  async create(machineName = this.name()) {
+    let vmswitch = await hyperV.createVswitch();
+    if(!vmswitch){
+       return util.exec([this.command(), '-D', 'create', '-d', 'hyperv', '--hyperv-memory', '512', machineName]);
+    }
+    return util.exec([this.command(), '-D', 'create', '-d', 'hyperv', '--hyperv-memory' , '512', '--hyperv-virtual-switch','default',machineName]);
   },
   start: function (machineName = this.name()) {
     return util.exec([this.command(), '-D', 'start', machineName]);
+  },
+  regenerate_certs: function (machineName = this.name()) {
+    return util.exec([this.command(), '-D', 'regenerate-certs', machineName]);
   },
   stop: function (machineName = this.name()) {
     return util.exec([this.command(), 'stop', machineName]);
@@ -164,6 +176,15 @@ var DockerMachine = {
     let logData = null;
     try {
       logData = fs.readFileSync(logsPath, 'utf8');
+    } catch (e) {
+      console.error(e);
+    }
+    return logData;
+  },
+  async hyperVLogs(machineName = this.name()) {
+    let logData = null;
+    try {
+       logData = await hyperV.hyperVLogs();
     } catch (e) {
       console.error(e);
     }

@@ -142,7 +142,8 @@ export default {
         }
         let certcheck = path.join(certDir, 'cert.pem');
         if(!fs.existsSync(certcheck)){
-        alert("here");
+
+
           docker.setup(ip, machine.name());
         }
         break;

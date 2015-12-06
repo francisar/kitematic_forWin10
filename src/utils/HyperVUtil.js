@@ -13,23 +13,23 @@ var HyperV = {
     }
   },
   installed: function () {
-    return util.exec(this.command() + "\" Get-WindowsOptionalFeature -Online| select State -First 1\"").then(stdout => {
+    return util.exec([this.command() ,"Get-WindowsOptionalFeature -Online| select -ExpandProperty State -First 1"]).then(stdout => {
        if(stdout=="Enabled"){
-            return Promise.resolve("true");
+            return true;
        }
-      return Promise.resolve(null);
+      return false;
     }).catch(() => {
-      return Promise.resolve(null);
+      return false;
     });
   },
   active: function () {
-   util.exec(this.command() + '\" Get-Service | where {$_.Name -eq \'vmms\'}|select Status\"').then(stdout => {
-       if(stdout=="Running"){
-            return Promise.resolve("true");
-       }
-      return Promise.resolve(null);
+   return util.exec([this.command() , ' Get-Service | where {$_.Name -eq "vmms"}|select -ExpandProperty Status']).then(stdout => {
+      if(stdout == "Running"){
+        return true;
+      }
+        return false;
     }).catch(() => {
-      return Promise.resolve(null);
+      return false;
     });
   },
   getNetadapter: function(){
@@ -49,15 +49,15 @@ var HyperV = {
       if(!netadapter){
         return Promise.resolve(null);
       }
-      return util.exec([this.command(),"New-VMSwitch default  -NetAdapterName \"",netadapter,"\" "]).then(stdout => {
+      return util.exec([this.command(),"New-VMSwitch default  -NetAdapterName "+netadapter]).then(stdout => {
          return Promise.resolve(stdout);
-         }).catch(() => {
+         }).catch((stderr) => {
          return Promise.resolve(null);
         });
   },
   version: function () {
     return util.exec([this.command() , "  Get-WmiObject -Class Win32_OperatingSystem|select  -ExpandProperty Version"]).then(stdout => {
-      let matchlist = stdout;
+      var matchlist = stdout;
       if (!matchlist) {
         Promise.reject('hyperv output format not recognized.');
       }

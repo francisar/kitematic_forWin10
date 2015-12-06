@@ -58,24 +58,22 @@ export default {
     while (true) {
       try {
         setupServerActions.started({started: false});
-        let hypervInstalled = await hyperv.installed();
+        let hypervInstalled = hyperv.installed();
         let machineInstalled = machine.installed();
         if (!hypervInstalled || !machineInstalled) {
-       if (!machineInstalled) {
           router.get().transitionTo('setup');
           if (!hypervInstalled) {
              setupServerActions.error({error: 'HyperV is not installed. Please install it via the Control Panal.'});
           } else {
              setupServerActions.error({error: 'Docker Machine is not installed. Please install it via the Docker Toolbox.'});
           }
-          let hypervActived = await hyperv.active();
+          let hypervActived = hyperv.active();
           if(!hypervActived){
              setupServerActions.error({error: 'HyperV is not Running. Please Start it.'});
-         }
+          }
           this.clearTimers();
           await this.pause();
           continue;
-        }
         }
 
         hypervVersion = await hyperv.version();
@@ -97,6 +95,17 @@ export default {
             await machine.rm();
           } catch (err) {}
           await machine.create();
+          let state = await machine.status();
+          if (state !== 'Running') {
+            if (state === 'Saved') {
+              router.get().transitionTo('setup');
+              this.simulateProgress(10);
+            } else if (state === 'Stopped') {
+              router.get().transitionTo('setup');
+              this.simulateProgress(25);
+            }
+            await machine.start();
+          }
         } else {
           let state = await machine.status();
           if (state !== 'Running') {
@@ -112,7 +121,7 @@ export default {
         }
 
         // Try to receive an ip address from machine, for at least to 80 seconds.
-        let tries = 1, ip = null;
+        let tries = 80, ip = null;
         while (!ip && tries > 0) {
           try {
             console.log('Trying to fetch machine IP, tries left: ' + tries);
@@ -127,7 +136,15 @@ export default {
         } else {
           throw new Error('Could not determine IP from docker-machine.');
         }
-
+        let certDir = path.join(util.home(), '.docker/machine/machines/',  machine.name());
+        if (!fs.existsSync(certDir)) {
+         throw new Error('Certificate directory does not exist');
+        }
+        let certcheck = path.join(certDir, 'cert.pem');
+        if(!fs.existsSync(certcheck)){
+        alert("here");
+          docker.setup(ip, machine.name());
+        }
         break;
       } catch (error) {
         router.get().transitionTo('setup');
@@ -152,6 +169,8 @@ export default {
         await this.pause();
       }
     }
+
+
     metrics.track('Setup Finished', {
       hypervVersion,
       machineVersion
